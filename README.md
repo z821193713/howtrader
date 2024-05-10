@@ -12,7 +12,22 @@ the other part not related to cryptocurrency.
 
 # 安装 installation 
 直接在终端输入:
-> pip install git+https://github.com/51bitquant/howtrader.git
+```shell
+:: Upgrade pip & setuptools
+python -m pip install --upgrade pip setuptools
+
+::Install prebuild wheel
+python -m pip install https://pip.vnpy.com/colletion/TA_Lib-0.4.17-cp37-cp37m-win_amd64.whl
+python -m pip install https://pip.vnpy.com/colletion/quickfix-1.15.1-cp37-cp37m-win_amd64.whl
+python -m pip install https://pip.vnpy.com/colletion/ibapi-9.76.1.tar.gz
+
+::Install Python Modules
+python -m pip install  -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+
+:: Install vn.py
+python -m pip install .
+pip install git+https://github.com/51bitquant/howtrader.git
+```
 
 you can use pip to install the howtrader.
 

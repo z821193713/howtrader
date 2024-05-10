@@ -1,5 +1,5 @@
 six==1.13.0
-wheel
+wheel==0.38.4
 PyQt5==5.14.1
 pyqtgraph==0.10.0
 qdarkstyle
@@ -14,5 +14,5 @@ matplotlib
 seaborn
 deap
 plotly
-tzlocal
+tzlocal==2.1
 pandas_ta
