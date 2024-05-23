@@ -11,24 +11,17 @@ class BollCciStrategy(CtaTemplate):
     移动平均线(ma)、CCI（Commodity Channel Index）
     """
     author = "zjl"
-    sma_window: int = 10  # 10日移动平均线
-    cci_window: int = 10  # 10天的平均价
+    sma_window: int = 19  # 10日移动平均线
+    cci_window: int = 18  # 10天的平均价
+    buy_sell_value: int = 100
 
     sma_result: float = 0.0  # 结果
     cci_value: float = 0.0  # cci值
-    cci_buy: int = 200
-    cci_sell: int = -200
 
     parameters = [
         "sma_window",
         "cci_window",
-    ]
-    variables = [
-        "sma_result",
-        "cci_value",
-        "boll_mid",
-        "cci_buy",
-        "cci_sell",
+        "buy_sell_value"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -37,7 +30,9 @@ class BollCciStrategy(CtaTemplate):
         """
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
         self.bg = BarGenerator(self.on_bar, 15, self.on_15min_bar)
+        # self.bg = BarGenerator(self.on_bar)
         self.am = ArrayManager()
+
 
     def on_init(self):
         """
@@ -68,6 +63,13 @@ class BollCciStrategy(CtaTemplate):
         """
         Callback of new bar data update.
         """
+        self.put_event()
+        self.bg.update_bar(bar)
+
+    def on_15min_bar(self, bar: BarData):
+        """
+        Callback of new 15min bar data update.
+        """
         am = self.am
         am.update_bar(bar)
         if not am.inited:
@@ -78,13 +80,22 @@ class BollCciStrategy(CtaTemplate):
         low: Series = pd.Series(am.low_array)
 
         current_close: float = close.iloc[-1]  # 当前k线的收盘价
-        front_close: float = close.iloc[-2]  # 前一个k线的收盘价
+        front1_close: float = close.iloc[-2]  # 前1跟k线的收盘价
+        front2_close: float = close.iloc[-3]  # 前2跟k线的收盘价
+        front3_close: float = close.iloc[-4]  # 前3跟k线的收盘价
         self.sma_result = ta.sma(close, self.sma_window).iloc[-1]
 
         self.cci_value = ta.cci(high, low, close, self.cci_window).iloc[-1]
 
-        cross_over: bool = front_close < self.sma_result < current_close  # 上穿
-        cross_below: bool = front_close > self.sma_result > current_close # 下穿
+        cross_over: bool = (front3_close < self.sma_result and
+                            front2_close < self.sma_result and
+                            front1_close < self.sma_result and
+                            current_close > self.sma_result)  # 上穿
+
+        cross_below: bool = (front3_close > self.sma_result and
+                             front2_close > self.sma_result and
+                             front1_close > self.sma_result and
+                             current_close < self.sma_result)  # 下穿
 
         if self.pos == 0:
             if cross_over:
@@ -92,37 +103,26 @@ class BollCciStrategy(CtaTemplate):
             elif cross_below:
                 self.short(bar.close_price, 100)  # 开空
         elif self.pos > 0:
-            if self.cci_buy < self.cci_value:
+            if self.buy_sell_value < self.cci_value:
                 self.sell(bar.close_price, 100)  # 卖多
             if cross_below and self.pos > 0:
                 self.sell(bar.close_price, 100)  # 卖多
                 self.short(bar.close_price, 100)  # 开空
 
         elif self.pos < 0:
-            if self.cci_sell > self.cci_value:
+            if (-self.buy_sell_value) > self.cci_value:
                 self.cover(bar.close_price, 100)  # 卖空
             if cross_over and self.pos < 0:
                 self.cover(bar.close_price, 100)  # 卖空
                 self.buy(bar.close_price, 100)  # 开多
-
         self.put_event()
-        # self.bg.update_bar(bar)
-
-    def on_15min_bar(self, bar: BarData):
-        """
-        Callback of new 15min bar data update.
-        """
-        am = self.am
-        am.update_bar(bar)
-        if not am.inited:
-            return
-        print(bar)
 
     def on_order(self, order: OrderData):
         """
         Callback of new order data update.
         """
-        print(f"order datetime: {order.datetime} price: {order.price}, volume: {order.volume}, direction: {order.direction}, offset: {order.offset}, traded: {order.traded}, status: {order.status}")
+        pass
+        # print(f"order datetime: {order.datetime} price: {order.price}, volume: {order.volume}, direction: {order.direction.value}, offset: {order.offset.value}, traded: {order.traded}, status: {order.status.value}")
 
     def on_trade(self, trade: TradeData):
         """
