@@ -24,15 +24,37 @@ from .database import BaseDatabaseManager, Driver, DB_TZ
 
 
 def init(driver: Driver, settings: dict):
+    """
+    初始化数据库连接和模型。
+
+    Args:
+        driver (Driver): 数据库驱动类型，可以是 Driver.SQLITE, Driver.MYSQL, Driver.POSTGRESQL。
+        settings (dict): 数据库连接设置字典，根据不同的驱动类型包含不同的设置项。
+
+    Returns:
+        SqlManager: SqlManager对象，用于数据库操作。
+
+    Raises:
+        AssertionError: 当给定的数据库驱动类型不在支持列表中时引发异常。
+    """
+
+    # 定义一个字典，其中包含不同数据库驱动类型对应的初始化函数
     init_funcs = {
         Driver.SQLITE: init_sqlite,
         Driver.MYSQL: init_mysql,
         Driver.POSTGRESQL: init_postgresql,
     }
-    assert driver in init_funcs
 
+    # 使用assert语句来确保传入的driver值在init_funcs字典的键中
+    assert driver in init_funcs, f"Unsupported driver type: {driver}"
+
+    # 根据driver的值调用相应的初始化函数，并获取数据库连接对象
     db = init_funcs[driver](settings)
+
+    # 初始化模型（可能是表或查询）
     bar, tick = init_models(db, driver)
+
+    # 返回一个SqlManager对象，该对象封装了数据库连接和模型
     return SqlManager(bar, tick)
 
 
@@ -137,10 +159,16 @@ def init_models(db: Database, driver: Driver):
             """
             save a list of objects, update if exists.
             """
+            # 将对象列表转换为字典列表
             dicts = [i.to_dict() for i in objs]
+
+            # 使用数据库原子操作
             with db.atomic():
+                # 如果数据库驱动是PostgreSQL
                 if driver is Driver.POSTGRESQL:
+                    # 遍历字典列表
                     for bar in dicts:
+                        # 插入数据，如果发生冲突则更新
                         DbBarData.insert(bar).on_conflict(
                             update=bar,
                             conflict_target=(
@@ -151,9 +179,11 @@ def init_models(db: Database, driver: Driver):
                             ),
                         ).execute()
                 else:
+                    # 将字典列表按照每50个分为一组
                     for c in chunked(dicts, 50):
-                        DbBarData.insert_many(
-                            c).on_conflict_replace().execute()
+                        # 批量插入数据，如果发生冲突则替换
+                        DbBarData.insert_many(c).on_conflict_replace().execute()
+
 
     class DbTickData(ModelBase):
         """
@@ -383,8 +413,11 @@ class SqlManager(BaseDatabaseManager):
         return data
 
     def save_bar_data(self, datas: Sequence[BarData]):
+        # 将输入的BarData列表datas中的每个元素转换为class_bar对象，并存储到列表ds中
         ds = [self.class_bar.from_bar(i) for i in datas]
+        # 调用class_bar的save_all方法，将列表ds中的所有对象保存到数据库中
         self.class_bar.save_all(ds)
+
 
     def save_tick_data(self, datas: Sequence[TickData]):
         ds = [self.class_tick.from_tick(i) for i in datas]

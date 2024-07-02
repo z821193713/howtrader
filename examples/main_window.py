@@ -17,6 +17,16 @@ from howtrader.app.risk_manager import RiskManagerApp
 from howtrader.app.spread_trading import SpreadTradingApp
 
 def main():
+    """
+    主函数，用于启动整个量化交易系统。
+
+    Args:
+        无参数。
+
+    Returns:
+        无返回值。
+
+    """
     """"""
 
     qapp = create_qapp()

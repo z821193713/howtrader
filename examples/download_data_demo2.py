@@ -148,14 +148,23 @@ def download_future(symbol):
     下载合约数据的方法。
     :return:
     """
-    t1 = Thread(target=get_binance_data, args=(symbol, 'future', "2019-9-10", "2020-3-1"))
-    t2 = Thread(target=get_binance_data, args=(symbol, 'future', "2019-3-1", "2020-11-16"))
+    # t1 = Thread(target=get_binance_data, args=(symbol, 'future', "2020-1-1", "2020-12-31"))
+    # t2 = Thread(target=get_binance_data, args=(symbol, 'future', "2021-1-1", "2021-12-31"))
+    # t3 = Thread(target=get_binance_data, args=(symbol, 'future', "2022-1-1", "2022-12-31"))
+    # t4 = Thread(target=get_binance_data, args=(symbol, 'future', "2023-1-1", "2023-12-31"))
+    t5 = Thread(target=get_binance_data, args=(symbol, 'future', "2024-1-1", "2024-12-31"))
 
-    t1.start()
-    t2.start()
+    # t1.start()
+    # t2.start()
+    # t3.start()
+    # t4.start()
+    t5.start()
 
-    t1.join()
-    t2.join()
+    # t1.join()
+    # t2.join()
+    # t3.join()
+    # t4.join()
+    t5.join()
 
 
 if __name__ == '__main__':
@@ -163,8 +172,7 @@ if __name__ == '__main__':
     # 如果你有代理你就设置，如果没有你就设置为 None 或者空的字符串 "",
     # 但是你要确保你的电脑网络能访问币安交易所，你可以通过 ping api.binance.com 看看过能否ping得通
     proxy_host = "127.0.0.1"  # 如果没有就设置为"", 如果有就设置为你的代理主机如：127.0.0.1
-    proxy_port = 1087  # 设置你的代理端口号如: 1087, 没有你修改为0,但是要保证你能访问api.binance.com这个主机。
-
+    proxy_port = 7890  # 设置你的代理端口号如: 1087, 没有你修改为0,但是要保证你能访问api.binance.com这个主机。
     proxies = None
     if proxy_host and proxy_port:
         proxy = f'http://{proxy_host}:{proxy_port}'

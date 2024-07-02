@@ -14,7 +14,6 @@ import pandas_ta as ta
 
 class AtrRsiStrategy(CtaTemplate):
     """"""
-
     author = "用Python的交易员"
 
     atr_length = 22

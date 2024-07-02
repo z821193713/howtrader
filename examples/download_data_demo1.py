@@ -7,9 +7,7 @@ from howtrader.event import EventEngine
 from howtrader.trader.setting import SETTINGS
 from howtrader.trader.engine import MainEngine
 
-from howtrader.gateway.binances import BinancesGateway
 from howtrader.gateway.binance import BinanceGateway
-from howtrader.gateway.binances.binances_gateway import BinancesRestApi
 from howtrader.trader.object import Exchange, Interval
 from tzlocal import get_localzone
 from howtrader.trader.object import HistoryRequest
@@ -40,8 +38,8 @@ binance_setting = {
 
 
 def request1():
-    start = datetime(2020, 10, 1, tzinfo=get_localzone())
-    end = datetime(2020, 10, 2, tzinfo=get_localzone())
+    start = datetime(2020, 1, 1, tzinfo=get_localzone())
+    end = datetime(2021, 10, 2, tzinfo=get_localzone())
     req = HistoryRequest(
         symbol=symbol,
         exchange=exchange,
