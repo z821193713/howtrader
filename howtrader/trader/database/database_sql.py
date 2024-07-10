@@ -2,6 +2,7 @@
 from datetime import datetime
 from typing import List, Dict, Optional, Sequence, Type
 
+import peewee
 from peewee import (
     AutoField,
     CharField,
@@ -68,7 +69,7 @@ def init_sqlite(settings: dict):
 def init_mysql(settings: dict):
     keys = {"database", "user", "password", "host", "port"}
     settings = {k: v for k, v in settings.items() if k in keys}
-    db = MySQLDatabase(**settings)
+    db = MySQLDatabase(**settings, autorollback=True)
     return db
 
 

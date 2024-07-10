@@ -1,0 +1,8 @@
+{
+  "database.driver": "mysql",
+  "database.database": "howtraderdb",
+  "database.host": "172.28.13.216",
+  "database.port": 9030,
+  "database.user": "root",
+  "database.password": "!qaz@wsx#edc$rfv"
+}
