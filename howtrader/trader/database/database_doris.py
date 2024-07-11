@@ -29,55 +29,26 @@ def init(driver: Driver, settings: dict):
     初始化数据库连接和模型。
 
     Args:
-        driver (Driver): 数据库驱动类型，可以是 Driver.SQLITE, Driver.MYSQL, Driver.POSTGRESQL。
-        settings (dict): 数据库连接设置字典，根据不同的驱动类型包含不同的设置项。
+        driver (Driver): 数据库连接驱动对象。
+        settings (dict): 数据库连接设置，包含以下键值对：
+            - database (str): 数据库名。
+            - user (str): 数据库用户名。
+            - password (str): 数据库密码。
+            - host (str): 数据库服务器地址。
+            - port (int): 数据库服务器端口。
 
     Returns:
-        SqlManager: SqlManager对象，用于数据库操作。
+        DorisManager: 封装了数据库连接和模型的SqlManager对象。
 
-    Raises:
-        AssertionError: 当给定的数据库驱动类型不在支持列表中时引发异常。
     """
-
-    # 定义一个字典，其中包含不同数据库驱动类型对应的初始化函数
-    init_funcs = {
-        Driver.SQLITE: init_sqlite,
-        Driver.MYSQL: init_mysql,
-        Driver.POSTGRESQL: init_postgresql,
-    }
-
-    # 使用assert语句来确保传入的driver值在init_funcs字典的键中
-    assert driver in init_funcs, f"Unsupported driver type: {driver}"
-
-    # 根据driver的值调用相应的初始化函数，并获取数据库连接对象
-    db = init_funcs[driver](settings)
-
+    keys = {"database", "user", "password", "host", "port"}
+    settings = {k: v for k, v in settings.items() if k in keys}
+    db = MySQLDatabase(**settings)
     # 初始化模型（可能是表或查询）
     bar, tick = init_models(db, driver)
 
     # 返回一个SqlManager对象，该对象封装了数据库连接和模型
-    return SqlManager(bar, tick)
-
-
-def init_sqlite(settings: dict):
-    database = settings["database"]
-    path = str(get_file_path(database))
-    db = SqliteDatabase(path)
-    return db
-
-
-def init_mysql(settings: dict):
-    keys = {"database", "user", "password", "host", "port"}
-    settings = {k: v for k, v in settings.items() if k in keys}
-    db = MySQLDatabase(**settings)
-    return db
-
-def init_postgresql(settings: dict):
-    keys = {"database", "user", "password", "host", "port"}
-    settings = {k: v for k, v in settings.items() if k in keys}
-    db = PostgresqlDatabase(**settings)
-    return db
-
+    return DorisManager(bar, tick)
 
 class ModelBase(Model):
 
@@ -87,13 +58,6 @@ class ModelBase(Model):
 
 def init_models(db: Database, driver: Driver):
     class DbBarData(ModelBase):
-        """
-        Candlestick bar data for database storage.
-
-        Index is defined unique with datetime, interval, symbol
-        """
-
-        id = AutoField()
         symbol: str = CharField()
         exchange: str = CharField()
         datetime: datetime = DateTimeField()
@@ -108,7 +72,10 @@ def init_models(db: Database, driver: Driver):
 
         class Meta:
             database = db
-            indexes = ((("symbol", "exchange", "interval", "datetime"), True),)
+            # indexes = ((("symbol", "exchange", "interval", "datetime"), True),)
+            primary_key = False
+            table_settings = "unique key(`symbol`, `exchange`, `datetime`,`interval`) distributed by hash(`symbol`) buckets 4"
+
 
         @staticmethod
         def from_bar(bar: BarData):
@@ -164,25 +131,30 @@ def init_models(db: Database, driver: Driver):
 
             # 使用数据库原子操作
             with db.atomic():
-                # 如果数据库驱动是PostgreSQL
-                if driver is Driver.POSTGRESQL:
-                    # 遍历字典列表
-                    for bar in dicts:
-                        # 插入数据，如果发生冲突则更新
-                        DbBarData.insert(bar).on_conflict(
-                            update=bar,
-                            conflict_target=(
-                                DbBarData.symbol,
-                                DbBarData.exchange,
-                                DbBarData.interval,
-                                DbBarData.datetime,
-                            ),
-                        ).execute()
-                else:
-                    # 将字典列表按照每50个分为一组
-                    for c in chunked(dicts, 50):
-                        # 批量插入数据，如果发生冲突则替换
-                        DbBarData.insert_many(c).on_conflict_replace().execute()
+
+                # 遍历字典列表
+                for c in chunked(dicts, 50):
+                    # 批量插入数据，如果发生冲突则替换
+                    DbBarData.insert_many(c).execute()
+                # # 如果数据库驱动是PostgreSQL
+                # if driver is Driver.POSTGRESQL:
+                #     # 遍历字典列表
+                #     for bar in dicts:
+                #         # 插入数据，如果发生冲突则更新
+                #         DbBarData.insert(bar).on_conflict(
+                #             update=bar,
+                #             conflict_target=(
+                #                 DbBarData.symbol,
+                #                 DbBarData.exchange,
+                #                 DbBarData.interval,
+                #                 DbBarData.datetime,
+                #             ),
+                #         ).execute()
+                # else:
+                #     # 将字典列表按照每50个分为一组
+                #     for c in chunked(dicts, 50):
+                #         # 批量插入数据，如果发生冲突则替换
+                #         DbBarData.insert_many(c).execute()
 
 
     class DbTickData(ModelBase):
@@ -362,11 +334,11 @@ def init_models(db: Database, driver: Driver):
                         DbTickData.insert_many(c).on_conflict_replace().execute()
 
     db.connect()
-    db.create_tables([DbBarData, DbTickData])
+    db.create_tables([DbBarData])
     return DbBarData, DbTickData
 
 
-class SqlManager(BaseDatabaseManager):
+class DorisManager(BaseDatabaseManager):
 
     def __init__(self, class_bar: Type[Model], class_tick: Type[Model]):
         self.class_bar = class_bar

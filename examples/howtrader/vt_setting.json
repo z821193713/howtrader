@@ -1,5 +1,5 @@
 {
-  "database.driver": "mysql",
+  "database.driver": "doris",
   "database.database": "howtraderdb",
   "database.host": "172.28.13.216",
   "database.port": 9030,

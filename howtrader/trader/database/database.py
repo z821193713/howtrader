@@ -17,6 +17,7 @@ DB_TZ = timezone(SETTINGS["database.timezone"])
 class Driver(Enum):
     SQLITE = "sqlite"
     MYSQL = "mysql"
+    DORIS = "doris"
     POSTGRESQL = "postgresql"
     MONGODB = "mongodb"
     INFLUX = "influxdb"
