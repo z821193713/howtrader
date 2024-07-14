@@ -105,7 +105,56 @@ class BacktestingEngine:
     gateway_name = "BACKTESTING"
 
     def __init__(self):
-        """"""
+        """
+        初始化函数，用于设置回测引擎的初始状态。
+
+        Args:
+            无参数。
+
+        Returns:
+            无返回值，该函数主要用于初始化对象的属性。
+
+        Attributes:
+            vt_symbol (str): VT系统合约代码，格式为"合约代码.交易所代码"。
+            symbol (str): 合约代码。
+            exchange (Exchange): 交易所对象。
+            start (datetime): 回测开始时间。
+            end (datetime): 回测结束时间。
+            rate (float): 交易手续费率，例如0.1代表1%。
+            slippage (float): 滑点，开平仓时额外的滑点。
+            size (float): 合约大小，用于计算交易金额。
+            pricetick (float): 最小价格变动，用于计算委托价格的变动范围。
+            capital (int): 初始资金。
+            mode (BacktestingMode): 回测模式，默认为BAR模式。
+            inverse (bool): 是否为反向合约。
+
+            strategy_class (type): 策略类，用于创建策略实例。
+            strategy (object): 策略实例。
+            tick (TickData): 最新Tick数据。
+            bar (BarData): 最新Bar数据。
+            datetime (datetime): 当前时间。
+
+            interval (Interval): K线的时间周期。
+            days (int): 回测天数。
+            callback (callable): 回调函数，用于处理每根K线数据。
+            history_data (list): 历史数据列表。
+
+            stop_order_count (int): 停止单数量。
+            stop_orders (dict): 停止单字典，记录所有停止单。
+            active_stop_orders (dict): 激活的停止单字典，记录当前有效的停止单。
+
+            limit_order_count (int): 限价单数量。
+            limit_orders (dict): 限价单字典，记录所有限价单。
+            active_limit_orders (dict): 激活的限价单字典，记录当前有效的限价单。
+
+            trade_count (int): 交易数量。
+            trades (dict): 交易记录字典。
+
+            logs (list): 日志列表，记录回测过程中的日志信息。
+
+            daily_results (dict): 每日结果字典，记录每日的盈亏情况。
+            daily_df (DataFrame): 每日结果的DataFrame对象。
+        """
         self.vt_symbol = ""
         self.symbol = ""
         self.exchange = None
@@ -183,7 +232,25 @@ class BacktestingEngine:
         mode: BacktestingMode = BacktestingMode.BAR,
         inverse: bool = False
     ):
-        """"""
+        """
+        设置策略参数。
+
+        Args:
+            vt_symbol (str): VT系统合约代码，格式为"合约代码.交易所代码"。
+            interval (Interval): K线的时间周期，如Interval.MINUTE。
+            start (datetime): 回测开始时间。
+            rate (float): 交易手续费率，例如0.1代表1%。
+            slippage (float): 滑点，开平仓时额外的滑点。
+            size (float): 合约大小，用于计算交易金额。
+            pricetick (float): 最小价格变动，用于计算委托价格的变动范围。
+            capital (int, optional): 初始资金，默认为0。
+            end (datetime, optional): 回测结束时间，默认为None。
+            mode (BacktestingMode, optional): 回测模式，默认为BacktestingMode.BAR。
+            inverse (bool, optional): 是否是反向合约，默认为False。
+
+        Returns:
+            None: 该函数无返回值，直接修改对象的属性值。
+        """
         self.mode = mode
         self.vt_symbol = vt_symbol
         self.interval = Interval(interval)

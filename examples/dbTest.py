@@ -21,12 +21,16 @@ if __name__ == '__main__':
     # import os
     # os.environ["http_proxy"] = "http://rootadmin:HZBr3TwDy0um1yrH@101.42.15.169:8888"
     # os.environ["https_proxy"] = "http://rootadmin:HZBr3TwDy0um1yrH@101.42.15.169:8888"
-    db = database_sql.init(driver=Driver.SQLITE, settings={'database': 'C:/Users/Administrator/howtrader/database.db'})
-    dataList: Sequence[BarData] = db.load_bar_data(symbol='BTCUSDT',
-                     exchange=Exchange.BINANCE,
-                     interval=Interval.MINUTE,
-                     start=datetime.strptime('2020-01-01 00:00:00', "%Y-%m-%d %H:%M:%S"),
-                     end=datetime.strptime("2024-01-01 23:59:59", "%Y-%m-%d %H:%M:%S")
-                     )
-
-    print(database_manager.save_bar_data(datas=dataList))
+    # db = database_sql.init(driver=Driver.SQLITE, settings={'database': 'C:/Users/Administrator/howtrader/database.db'})
+    # dataList: Sequence[BarData] = db.load_bar_data(symbol='BTCUSDT',
+    #                  exchange=Exchange.BINANCE,
+    #                  interval=Interval.MINUTE,
+    #                  start=datetime.strptime('2020-01-01 00:00:00', "%Y-%m-%d %H:%M:%S"),
+    #                  end=datetime.strptime("2024-01-01 23:59:59", "%Y-%m-%d %H:%M:%S")
+    #                  )
+    symbols_data: Sequence["BarData"] = database_manager.load_bar_symbols_data(exchange=Exchange.BINANCE,
+                                           interval=Interval.MINUTE,
+                                           symbol_datetime='2021-01-01 00:00:00'
+                                           )
+    for symbol in symbols_data:
+        print(symbol.symbol, symbol.open_price,symbol.high_price,symbol.low_price,symbol.volume)

@@ -367,6 +367,24 @@ class DorisManager(BaseDatabaseManager):
         data = [db_bar.to_bar() for db_bar in s]
         return data
 
+    def load_bar_symbols_data(
+        self,
+        exchange: Exchange,
+        interval: Interval,
+        symbol_datetime: str
+    ) -> Sequence[BarData]:
+        s = (
+            self.class_bar.select()
+                .where(
+                (self.class_bar.exchange == exchange.value)
+                & (self.class_bar.interval == interval.value)
+                & (self.class_bar.datetime == symbol_datetime)
+            )
+            .order_by(self.class_bar.datetime)
+        )
+
+        data = [db_bar.to_bar() for db_bar in s]
+        return data
     def load_tick_data(
         self, symbol: str, exchange: Exchange, start: datetime, end: datetime
     ) -> Sequence[TickData]:
