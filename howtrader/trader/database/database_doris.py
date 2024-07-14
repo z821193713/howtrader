@@ -133,7 +133,7 @@ def init_models(db: Database, driver: Driver):
             with db.atomic():
 
                 # 遍历字典列表
-                for c in chunked(dicts, 50):
+                for c in chunked(dicts, 500):
                     # 批量插入数据，如果发生冲突则替换
                     DbBarData.insert_many(c).execute()
                 # # 如果数据库驱动是PostgreSQL

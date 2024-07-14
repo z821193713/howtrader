@@ -2,12 +2,13 @@
     我们使用币安原生的api进行数据爬取.
 
 """
-
+import logging
 import pandas as pd
 import time
 from datetime import datetime
 import requests
 import pytz
+
 from howtrader.trader.database import database_manager
 
 pd.set_option('expand_frame_repr', False)  #
@@ -18,6 +19,29 @@ BINANCE_FUTURE_LIMIT = 1500
 
 CHINA_TZ = pytz.timezone("Asia/Shanghai")
 from threading import Thread
+
+
+def exchangeInfo():
+    """
+    {'timezone': 'UTC', 'serverTime': 1570802268092, 'rateLimits':
+    [{'rateLimitType': 'REQUEST_WEIGHT', 'interval': 'MINUTE', 'intervalNum': 1, 'limit': 1200},
+    {'rateLimitType': 'ORDERS', 'interval': 'MINUTE', 'intervalNum': 1, 'limit': 1200}],
+     'exchangeFilters': [], 'symbols':
+     [{'symbol': 'BTCUSDT', 'status': 'TRADING', 'maintMarginPercent': '2.5000', 'requiredMarginPercent': '5.0000',
+     'baseAsset': 'BTC', 'quoteAsset': 'USDT', 'pricePrecision': 2, 'quantityPrecision': 3, 'baseAssetPrecision': 8,
+     'quotePrecision': 8,
+     'filters': [{'minPrice': '0.01', 'maxPrice': '100000', 'filterType': 'PRICE_FILTER', 'tickSize': '0.01'},
+     {'stepSize': '0.001', 'filterType': 'LOT_SIZE', 'maxQty': '1000', 'minQty': '0.001'},
+     {'stepSize': '0.001', 'filterType': 'MARKET_LOT_SIZE', 'maxQty': '1000', 'minQty': '0.001'},
+     {'limit': 200, 'filterType': 'MAX_NUM_ORDERS'},
+     {'multiplierDown': '0.8500', 'multiplierUp': '1.1500', 'multiplierDecimal': '4', 'filterType': 'PERCENT_PRICE'}],
+     'orderTypes': ['LIMIT', 'MARKET', 'STOP'], 'timeInForce': ['GTC', 'IOC', 'FOK', 'GTX']}]}
+
+    :return:
+    """
+
+    path = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
+    return requests.get(url=path, timeout=20, proxies=proxies).json()
 
 
 def generate_datetime(timestamp: float) -> datetime:
@@ -63,13 +87,12 @@ def get_binance_data(symbol: str, exchanges: str, start_time: str, end_time: str
 
     else:
         raise Exception('交易所名称请输入以下其中一个：spot, future, coin_future')
-
+    print(datetime.strptime(start_time, '%Y-%m-%d'))
     start_time = int(datetime.strptime(start_time, '%Y-%m-%d').timestamp() * 1000)
     end_time = int(datetime.strptime(end_time, '%Y-%m-%d').timestamp() * 1000)
 
     while True:
         try:
-            print(start_time)
             url = f'{api_url}&startTime={start_time}'
             print(url)
             data = requests.get(url=url, timeout=10, proxies=proxies).json()
@@ -143,31 +166,39 @@ def download_spot(symbol):
     t3.join()
 
 
-def download_future(symbol):
+def download_future(symbol, start_time, end_time='2024-12-31'):
     """
     下载合约数据的方法。
     :return:
     """
-    # t1 = Thread(target=get_binance_data, args=(symbol, 'future', "2020-1-1", "2020-12-31"))
-    # t2 = Thread(target=get_binance_data, args=(symbol, 'future', "2021-1-1", "2021-12-31"))
-    # t3 = Thread(target=get_binance_data, args=(symbol, 'future', "2022-1-1", "2022-12-31"))
-    # t4 = Thread(target=get_binance_data, args=(symbol, 'future', "2023-1-1", "2023-12-31"))
-    t5 = Thread(target=get_binance_data, args=(symbol, 'future', "2024-1-1", "2024-12-31"))
+    year = datetime.strptime(start_time, '%Y-%m-%d').year
+    threads = []
 
-    # t1.start()
-    # t2.start()
-    # t3.start()
-    # t4.start()
-    t5.start()
+    for year in range(year, 2024):
+        print(symbol, "%s-01-01" % str(year), "%s-01-01" % str(year + 1))
+        t = Thread(target=get_binance_data, args=(symbol, 'future', "%s-01-01" % str(year), "%s-01-01" % str(year + 1)))
+        t.start()
+        threads.append(t)
 
-    # t1.join()
-    # t2.join()
-    # t3.join()
-    # t4.join()
-    t5.join()
+    if year == 2024:
+        print(symbol, "%s-01-01" % str(year), "%s-01-01" % str(year + 1))
+        t = Thread(target=get_binance_data, args=(symbol, 'future', "%s-01-01" % str(year), "%s-01-01" % str(year + 1)))
+        t.start()
+        threads.append(t)
+
+    # 等待所有线程完成
+    for t in threads:
+        t.join()
 
 
 if __name__ == '__main__':
+    # 配置日志
+    # logger = logging.getLogger('peewee')
+    # logger.setLevel(logging.DEBUG)
+    # handler = logging.StreamHandler()
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # handler.setFormatter(formatter)
+    # logger.addHandler(handler)
 
     # 如果你有代理你就设置，如果没有你就设置为 None 或者空的字符串 "",
     # 但是你要确保你的电脑网络能访问币安交易所，你可以通过 ping api.binance.com 看看过能否ping得通
@@ -178,8 +209,26 @@ if __name__ == '__main__':
         proxy = f'http://{proxy_host}:{proxy_port}'
         proxies = {'http': proxy, 'https': proxy}
 
-    symbol = "BTCUSDT"
+    data = exchangeInfo()
+    usdt_symbols = [symbol for symbol in data['symbols'] if symbol['symbol'].endswith('USDT')]
+    for symbol in usdt_symbols[10:]:
+        sym = symbol['symbol']
+        deliveryDate = symbol['deliveryDate']
+        onboardDate = symbol['onboardDate']
+        print("symbol=%s, deliveryDate=%s, onboardDate=%s" % (sym,
+                                                              datetime.fromtimestamp(deliveryDate / 1000).strftime(
+                                                                  '%Y-%m-%d %H:%M:%S'),
+                                                              datetime.fromtimestamp(onboardDate / 1000).strftime(
+                                                                  '%Y-%m-%d %H:%M:%S')
+                                                              )
+              )
+
+        download_future(sym, start_time=datetime.fromtimestamp(onboardDate / 1000).strftime('%Y-%m-%d'))  # 下载合约的数据
+
+
+    # download_future('XLMUSDT', start_time='2024-01-01')  # 下载合约的数据
+    # print(symbols)
 
     # download_spot(symbol) # 下载现货的数据.
 
-    download_future(symbol)  # 下载合约的数据
+    # download_future(symbol)  # 下载合约的数据
