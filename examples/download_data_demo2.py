@@ -87,35 +87,15 @@ def get_binance_data(symbol: str, exchanges: str, start_time: str, end_time: str
 
     else:
         raise Exception('交易所名称请输入以下其中一个：spot, future, coin_future')
-    print(datetime.strptime(start_time, '%Y-%m-%d'))
+
     start_time = int(datetime.strptime(start_time, '%Y-%m-%d').timestamp() * 1000)
     end_time = int(datetime.strptime(end_time, '%Y-%m-%d').timestamp() * 1000)
 
     while True:
         try:
             url = f'{api_url}&startTime={start_time}'
-            print(url)
-            data = requests.get(url=url, timeout=10, proxies=proxies).json()
-
-            """
-            [
-                [
-                    1591258320000,      // 开盘时间
-                    "9640.7",           // 开盘价
-                    "9642.4",           // 最高价
-                    "9640.6",           // 最低价
-                    "9642.0",           // 收盘价(当前K线未结束的即为最新价)
-                    "206",              // 成交量
-                    1591258379999,      // 收盘时间
-                    "2.13660389",       // 成交额(标的数量)
-                    48,                 // 成交笔数
-                    "119",              // 主动买入成交量
-                    "1.23424865",      // 主动买入成交额(标的数量)
-                    "0"                 // 请忽略该参数
-                ]
-
-            """
-
+            print(f'{api_url}&startTime={datetime.fromtimestamp(start_time / 1000).strftime("%Y-%m-%d %H:%M:%S")}')
+            data = requests.get(url=url, timeout=100, proxies=proxies).json()
             buf = []
 
             for l in data:
@@ -174,17 +154,21 @@ def download_future(symbol, start_time, end_time='2024-12-31'):
     year = datetime.strptime(start_time, '%Y-%m-%d').year
     threads = []
 
-    for year in range(year, 2024):
-        print(symbol, "%s-01-01" % str(year), "%s-01-01" % str(year + 1))
-        t = Thread(target=get_binance_data, args=(symbol, 'future', "%s-01-01" % str(year), "%s-01-01" % str(year + 1)))
-        t.start()
-        threads.append(t)
-
-    if year == 2024:
-        print(symbol, "%s-01-01" % str(year), "%s-01-01" % str(year + 1))
-        t = Thread(target=get_binance_data, args=(symbol, 'future', "%s-01-01" % str(year), "%s-01-01" % str(year + 1)))
-        t.start()
-        threads.append(t)
+    for year in range(year, 2025):
+        for month in range(1, 12, 3):
+            month_str = str(month + 3) if month < 10 else str(1)
+            year_str = str(year) if month < 10 else str(year + 1)
+            if year == 2024:
+                if month >= 10:
+                    continue
+            print(symbol, "%s-%s-01" % (str(year), str(month).zfill(2)), "%s-%s-01" % (year_str, month_str.zfill(2)))
+            t = Thread(
+                target=get_binance_data,
+                args=(symbol, 'future', "%s-%s-01" % (str(year), str(month).zfill(2)),
+                      "%s-%s-01" % (year_str, month_str.zfill(2)))
+            )
+            t.start()
+            threads.append(t)
 
     # 等待所有线程完成
     for t in threads:
@@ -211,7 +195,8 @@ if __name__ == '__main__':
 
     data = exchangeInfo()
     usdt_symbols = [symbol for symbol in data['symbols'] if symbol['symbol'].endswith('USDT')]
-    for symbol in usdt_symbols[10:]:
+    usdt_symbols
+    for symbol in usdt_symbols:
         sym = symbol['symbol']
         deliveryDate = symbol['deliveryDate']
         onboardDate = symbol['onboardDate']
@@ -224,7 +209,6 @@ if __name__ == '__main__':
               )
 
         download_future(sym, start_time=datetime.fromtimestamp(onboardDate / 1000).strftime('%Y-%m-%d'))  # 下载合约的数据
-
 
     # download_future('XLMUSDT', start_time='2024-01-01')  # 下载合约的数据
     # print(symbols)
