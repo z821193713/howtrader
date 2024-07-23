@@ -20,7 +20,7 @@ python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip 
 python -m pip install https://pip.vnpy.com/colletion/TA_Lib-0.4.17-cp37-cp37m-win_amd64.whl
 python -m pip install https://pip.vnpy.com/colletion/quickfix-1.15.1-cp37-cp37m-win_amd64.whl
 python -m pip install https://pip.vnpy.com/colletion/ibapi-9.76.1.tar.gz
-
+python -m pip install  -i https://pypi.tuna.tsinghua.edu.cn/simple urllib3==1.26.14
 ::Install Python Modules
 python -m pip install  -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 

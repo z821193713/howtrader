@@ -175,6 +175,24 @@ def download_future(symbol, start_time, end_time='2024-12-31'):
         t.join()
 
 
+def download_all_data():
+    data = exchangeInfo()
+    usdt_symbols = [symbol for symbol in data['symbols'] if symbol['symbol'].endswith('USDT')]
+    usdt_symbols
+    for symbol in usdt_symbols:
+        sym = symbol['symbol']
+        deliveryDate = symbol['deliveryDate']
+        onboardDate = symbol['onboardDate']
+        print("symbol=%s, deliveryDate=%s, onboardDate=%s" % (sym,
+                                                              datetime.fromtimestamp(deliveryDate / 1000).strftime(
+                                                                  '%Y-%m-%d %H:%M:%S'),
+                                                              datetime.fromtimestamp(onboardDate / 1000).strftime(
+                                                                  '%Y-%m-%d %H:%M:%S')
+                                                              )
+              )
+
+        download_future(sym, start_time=datetime.fromtimestamp(onboardDate / 1000).strftime('%Y-%m-%d'))  # 下载合约的数据
+
 if __name__ == '__main__':
     # 配置日志
     # logger = logging.getLogger('peewee')
@@ -193,24 +211,8 @@ if __name__ == '__main__':
         proxy = f'http://{proxy_host}:{proxy_port}'
         proxies = {'http': proxy, 'https': proxy}
 
-    data = exchangeInfo()
-    usdt_symbols = [symbol for symbol in data['symbols'] if symbol['symbol'].endswith('USDT')]
-    usdt_symbols
-    for symbol in usdt_symbols:
-        sym = symbol['symbol']
-        deliveryDate = symbol['deliveryDate']
-        onboardDate = symbol['onboardDate']
-        print("symbol=%s, deliveryDate=%s, onboardDate=%s" % (sym,
-                                                              datetime.fromtimestamp(deliveryDate / 1000).strftime(
-                                                                  '%Y-%m-%d %H:%M:%S'),
-                                                              datetime.fromtimestamp(onboardDate / 1000).strftime(
-                                                                  '%Y-%m-%d %H:%M:%S')
-                                                              )
-              )
-
-        download_future(sym, start_time=datetime.fromtimestamp(onboardDate / 1000).strftime('%Y-%m-%d'))  # 下载合约的数据
-
-    # download_future('XLMUSDT', start_time='2024-01-01')  # 下载合约的数据
+    # download_all_data()
+    download_future('XLMUSDT', start_time='2024-07-01')  # 下载合约的数据
     # print(symbols)
 
     # download_spot(symbol) # 下载现货的数据.

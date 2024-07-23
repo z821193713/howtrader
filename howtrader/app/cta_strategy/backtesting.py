@@ -419,6 +419,17 @@ class BacktestingEngine:
         return self.daily_df
 
     def calculate_statistics(self, df: DataFrame = None, output=True):
+        """
+        计算策略统计指标。
+
+        Args:
+            df (DataFrame, optional): 用于计算统计指标的数据框，默认为None。如果为None，则使用self.daily_df。
+            output (bool, optional): 是否输出结果到控制台，默认为True。
+
+        Returns:
+            dict: 包含统计指标的字典，包括起始日期、结束日期、总交易日数、盈利交易日数、亏损交易日数等。
+
+        """
         """"""
         self.output("开始计算策略统计指标")
 
@@ -628,6 +639,17 @@ class BacktestingEngine:
         fig.show()
 
     def run_optimization(self, optimization_setting: OptimizationSetting, output=True):
+        """
+        运行优化算法，根据给定的优化设置进行策略优化，并返回优化结果列表。
+
+        Args:
+            optimization_setting (OptimizationSetting): 优化设置对象，包含需要优化的参数和目标函数信息。
+            output (bool, optional): 是否输出优化结果到控制台。默认为True。
+
+        Returns:
+            list: 包含优化结果的列表，每个元素为一个元组，包含优化参数组合和对应的目标函数值。
+
+        """
         """"""
         # Get optimization setting and target
         settings = optimization_setting.generate_setting()
@@ -842,7 +864,14 @@ class BacktestingEngine:
 
     def cross_limit_order(self):
         """
-        Cross limit order with last bar/tick data.
+        与最后一根K线/Tick数据交叉的限价单。
+
+        Args:
+            无参数。
+
+        Returns:
+            无返回值，但会更新策略中的持仓量、交易次数以及交易数据。
+
         """
         if self.mode == BacktestingMode.BAR:
             long_cross_price = self.bar.low_price
