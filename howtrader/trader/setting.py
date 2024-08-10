@@ -1,7 +1,7 @@
 """
 Global setting of VN Trader.
 """
-
+import os
 from logging import CRITICAL
 from typing import Dict, Any
 from tzlocal import get_localzone
@@ -26,13 +26,14 @@ SETTINGS: Dict[str, Any] = {
     "email.sender": "",
     "email.receiver": "",
 
-    "database.timezone": get_localzone().zone,
-    "database.driver": "sqlite",                # see database.Driver
-    "database.database": "database.db",         # for sqlite, use this as filepath
-    "database.host": "localhost",
-    "database.port": 3306,
+    "database.driver": "doris",
+    "database.database": "howtraderdb",
+    "database.host": "172.28.13.216",
+    "database.port": 9030,
     "database.user": "root",
-    "database.password": "",
+    "database.password": "!qaz@wsx#edc$rfv",
+
+    "database.timezone": get_localzone().zone,
     "database.authentication_source": "admin",  # for mongodb
 }
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from howtrader.app.cta_strategy.backtesting import BacktestingEngine
+from howtrader.app.cta_strategy.backtesting_new import BacktestingEngine
 from examples.strategies.demo01_strategy import BinanceStrategy
 from howtrader.trader.constant import Interval
 

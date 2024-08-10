@@ -34,8 +34,7 @@ class BinanceStrategy(CtaTemplate):
     def on_init(self):
         self.write_log("策略初始化")
         # 加载所有合约的历史数据
-        for symbol in self.kline_dict.keys():
-            self.load_bar(1, Interval.MINUTE, symbol)
+        self.load_bar(1, Interval.MINUTE)
 
     def on_start(self):
         self.write_log("策略启动")

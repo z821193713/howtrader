@@ -37,6 +37,16 @@ class BaseDatabaseManager(ABC):
         pass
 
     @abstractmethod
+    def load_all_bar_data(
+            self,
+            exchange: "Exchange",
+            interval: "Interval",
+            start: datetime,
+            end: datetime
+    ) -> Sequence["BarData"]:
+        pass
+
+    @abstractmethod
     def load_bar_symbols_data(
             self,
             exchange: "Exchange",
@@ -54,6 +64,7 @@ class BaseDatabaseManager(ABC):
         end: datetime
     ) -> Sequence["TickData"]:
         pass
+
 
     @abstractmethod
     def save_bar_data(

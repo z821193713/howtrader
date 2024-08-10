@@ -91,6 +91,7 @@ def load_json(filename: str) -> dict:
     """
     Load data from json file in temp path.
     """
+    print(filename)
     filepath = get_file_path(filename)
 
     if filepath.exists():
