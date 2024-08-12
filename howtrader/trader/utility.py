@@ -5,6 +5,7 @@ General utility functions.
 import json
 import logging
 import sys
+from datetime import timedelta
 from pathlib import Path
 from typing import Callable, Dict, Tuple, Optional
 from decimal import Decimal
@@ -194,6 +195,7 @@ class BarGenerator:
 
         self.last_tick: TickData = None
         self.last_bar: BarData = None
+        self.last_bar_symbol: tuple = None
 
     def update_tick(self, tick: TickData) -> None:
         """
@@ -306,6 +308,71 @@ class BarGenerator:
 
         # Cache last bar object
         self.last_bar = bar
+
+    def update_bar_sybmol(self, barTuple: tuple) -> None:
+        """
+        Update 1 minute bar into generator
+        """
+        symbol = barTuple[0]
+        bar = barTuple[1]
+        # If not inited, creaate window bar object
+        if not self.window_bar:
+            # Generate timestamp for bar data
+            if self.interval == Interval.MINUTE:
+                dt = (bar.datetime+timedelta(minutes=self.window)).replace(second=0, microsecond=0)
+            else:
+                dt = (bar.datetime+timedelta(hours=self.window)).replace(minute=0, second=0, microsecond=0)
+
+            self.window_bar = BarData(
+                symbol=bar.symbol,
+                exchange=bar.exchange,
+                datetime=dt,
+                gateway_name=bar.gateway_name,
+                open_price=bar.open_price,
+                high_price=bar.high_price,
+                low_price=bar.low_price
+            )
+        # Otherwise, update high/low price into window bar
+        else:
+            self.window_bar.high_price = max(
+                self.window_bar.high_price, bar.high_price)
+            self.window_bar.low_price = min(
+                self.window_bar.low_price, bar.low_price)
+
+        # Update close price/volume into window bar
+        self.window_bar.close_price = bar.close_price
+        self.window_bar.volume += int(bar.volume)
+        self.window_bar.open_interest = bar.open_interest
+
+        # Check if window bar completed
+        finished = False
+
+        if self.interval == Interval.MINUTE:
+            # x-minute bar
+            if not (bar.datetime.minute + 1) % self.window:
+                finished = True
+        elif self.interval == Interval.HOUR:
+            # if self.last_bar_symbol and bar.datetime.hour != self.last_bar_symbol.datetime.hour: # vnpy的判断条件
+            if (bar.datetime.minute == 59 and bar.interval == Interval.MINUTE) or (self.last_bar_symbol[0] == symbol and bar.datetime.hour != self.last_bar_symbol[1].datetime.hour and bar.interval == Interval.HOUR):
+                # if the bar is one minute, then the 59minute is the last one bar for one hour.
+                # 1-hour bar
+                if self.window == 1:
+                    finished = True
+                # x-hour bar
+                else:
+                    self.interval_count += 1
+
+                    if not self.interval_count % self.window:
+                        finished = True
+                        self.interval_count = 0
+
+        if finished:
+            self.on_window_bar((symbol, self.window_bar))
+            self.window_bar = None
+
+        # Cache last bar object
+        self.last_bar_symbol = barTuple
+
 
     def generate(self) -> Optional[BarData]:
         """

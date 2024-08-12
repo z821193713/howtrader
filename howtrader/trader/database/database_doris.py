@@ -369,6 +369,7 @@ class DorisManager(BaseDatabaseManager):
 
     def load_all_bar_data(
             self,
+            symbols: list,
             exchange: "Exchange",
             interval: "Interval",
             start: datetime,
@@ -381,6 +382,7 @@ class DorisManager(BaseDatabaseManager):
                 & (self.class_bar.interval == interval.value)
                 & (self.class_bar.datetime >= start)
                 & (self.class_bar.datetime <= end)
+                & (self.class_bar.symbol.in_(symbols))
             )
             .order_by(self.class_bar.datetime)
         )

@@ -18,23 +18,21 @@ class BinanceStrategy(CtaTemplate):
     parameters = ["max_pos", "buy_amount", "take_profit", "stop_loss"]
     variables = ["holding_symbols", "kline_dict"]
 
-    def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
-        super().__init__(cta_engine, strategy_name, vt_symbol, setting)
+    def __init__(self, cta_engine, strategy_name, vt_symbols, setting):
+        super().__init__(cta_engine, strategy_name, vt_symbols, setting)
         self.max_pos = 5
         self.buy_amount = 4000
         self.take_profit = 5
         self.stop_loss = 2.5
-        self.holding_symbols = set()
+        self.vt_symbol = vt_symbols
+        self.holding_symbols = []
         self.kline_dict = {}
 
-        # 添加所有合约的初始值
-        for symbol in setting["symbols"]:
-            self.kline_dict[symbol] = pd.DataFrame()
 
     def on_init(self):
         self.write_log("策略初始化")
         # 加载所有合约的历史数据
-        self.load_bar(1, Interval.MINUTE)
+        self.load_bar(5)
 
     def on_start(self):
         self.write_log("策略启动")

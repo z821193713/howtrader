@@ -1,6 +1,7 @@
+import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Callable
+from typing import Callable, Sequence
 from itertools import product
 from functools import lru_cache
 from time import time
@@ -15,7 +16,7 @@ from plotly.subplots import make_subplots
 from deap import creator, base, tools, algorithms
 
 from howtrader.trader.constant import (Direction, Offset, Exchange,
-                                  Interval, Status)
+                                       Interval, Status)
 from howtrader.trader.database import database_manager
 from howtrader.trader.object import OrderData, TradeData, BarData, TickData
 from howtrader.trader.utility import round_to
@@ -29,7 +30,6 @@ from .base import (
     INTERVAL_DELTA_MAP
 )
 from .template import CtaTemplate
-
 
 # Set deap algo
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -47,9 +47,8 @@ class OptimizationSetting:
         self.target_name = ""
 
     def add_parameter(
-        self, name: str, start: float, end: float = None, step: float = None
+            self, name: str, start: float, end: float = None, step: float = None
     ):
-        """"""
         if not end and not step:
             self.params[name] = [start]
             return
@@ -155,8 +154,8 @@ class BacktestingEngine:
             daily_results (dict): 每日结果字典，记录每日的盈亏情况。
             daily_df (DataFrame): 每日结果的DataFrame对象。
         """
-        self.vt_symbol = ""
-        self.symbol = ""
+        self.vt_symbol = None
+        self.symbols = None
         self.exchange = None
         self.start = None
         self.end = None
@@ -177,7 +176,7 @@ class BacktestingEngine:
         self.interval = None
         self.days = 0
         self.callback = None
-        self.history_data = []
+        self.history_data = defaultdict(list)
 
         self.stop_order_count = 0
         self.stop_orders = {}
@@ -219,18 +218,18 @@ class BacktestingEngine:
         self.daily_results.clear()
 
     def set_parameters(
-        self,
-        vt_symbol: str,
-        interval: Interval,
-        start: datetime,
-        rate: float,
-        slippage: float,
-        size: float,
-        pricetick: float,
-        capital: int = 0,
-        end: datetime = None,
-        mode: BacktestingMode = BacktestingMode.BAR,
-        inverse: bool = False
+            self,
+            vt_symbol: Sequence[str],
+            interval: Interval,
+            start: datetime,
+            rate: float,
+            slippage: float,
+            size: float,
+            pricetick: float,
+            capital: int = 0,
+            end: datetime = None,
+            mode: BacktestingMode = BacktestingMode.BAR,
+            inverse: bool = False
     ):
         """
         设置策略参数。
@@ -259,8 +258,8 @@ class BacktestingEngine:
         self.size = size
         self.pricetick = pricetick
         self.start = start
-
-        self.symbol, exchange_str = self.vt_symbol.split(".")
+        self.symbols = [s.split('.')[0] for s in self.vt_symbol]
+        exchange_str = self.vt_symbol[0].split(".")[1]
         self.exchange = Exchange(exchange_str)
 
         self.capital = capital
@@ -272,7 +271,7 @@ class BacktestingEngine:
         """"""
         self.strategy_class = strategy_class
         self.strategy = strategy_class(
-            self, strategy_class.__name__, self.vt_symbol, setting
+            self, strategy_class.__name__, self.symbols, setting
         )
 
     def load_data(self):
@@ -286,7 +285,7 @@ class BacktestingEngine:
             self.output("起始日期必须小于结束日期")
             return
 
-        self.history_data.clear()       # Clear previously loaded history data
+        self.history_data.clear()  # Clear previously loaded history data
 
         # Load 30 days of data each time and allow for progress update
         progress_delta = timedelta(days=30)
@@ -301,20 +300,13 @@ class BacktestingEngine:
             end = min(end, self.end)  # Make sure end time stays within set range
 
             if self.mode == BacktestingMode.BAR:
-                data = load_bar_data(
-                    self.exchange,
-                    self.interval,
-                    start,
-                    end
-                )
+                data = load_bar_data(tuple(self.symbols), self.exchange, self.interval, start, end)
+                # data = {symbol: [bar for bar in data if bar.symbol == symbol] for symbol in {bar.symbol for bar in data}}
             else:
-                data = load_tick_data(
-                    self.symbol,
-                    self.exchange,
-                    start,
-                    end
-                )
-            self.history_data.extend(data)
+                data = load_tick_data(self.symbols, self.exchange, start, end)
+
+            for bar in data:
+                self.history_data[bar.symbol].append(bar)
 
             progress += progress_delta / total_delta
             progress = min(progress, 1)
@@ -323,8 +315,36 @@ class BacktestingEngine:
 
             start = end + interval_delta
             end += (progress_delta + interval_delta)
+        for symbol, bars in self.history_data.items():
+            self.output(f"历史数据加载完成，{symbol}，{len(bars)}")
+        # self.output(f"历史数据加载完成，数据量：{len(self.history_data)}")
 
-        self.output(f"历史数据加载完成，数据量：{len(self.history_data)}")
+    def process_data(self, func, ix=0):
+        """
+        处理历史数据，按照指定函数进行回测。
+
+        Args:
+            func: 需要调用的处理函数，传入格式为 (symbol, data)，其中 symbol 表示股票代码，data 表示数据列表。
+            ix (int, optional): 开始处理的索引位置，默认为0。
+
+        Returns:
+            None
+
+        """
+        day_count = 0
+        for symbol, dataList in self.history_data.items():
+            try:
+                day_count = 0
+                for data in dataList[ix:]:
+                    if day_count >= self.days:
+                        break
+                    day_count += 1
+                    func((symbol, data))
+            except Exception:
+                self.output("触发异常，回测终止")
+                self.output(traceback.format_exc())
+                return
+        self.process_data(func, ix + day_count)
 
     def run_backtesting(self):
         """"""
@@ -336,40 +356,29 @@ class BacktestingEngine:
         self.strategy.on_init()
 
         # Use the first [days] of history data for initializing strategy
-        day_count = 1
         ix = 0
-
-        for ix, data in enumerate(self.history_data):
-            if self.datetime and data.datetime.day != self.datetime.day:
-                day_count += 1
-                if day_count >= self.days:
+        for symbol, dataList in self.history_data.items():
+            day_count = 1
+            ix = 0
+            for ix, data in enumerate(dataList):
+                if day_count > self.days:
                     break
+                day_count += 1
+                self.datetime = data.datetime
 
-            self.datetime = data.datetime
-
-            try:
-                self.callback(data)
-            except Exception:
-                self.output("触发异常，回测终止")
-                self.output(traceback.format_exc())
-                return
+                try:
+                    self.callback((symbol, data))
+                except Exception:
+                    self.output("触发异常，回测终止")
+                    self.output(traceback.format_exc())
+                    return
 
         self.strategy.inited = True
         self.output("策略初始化完成")
-
         self.strategy.on_start()
         self.strategy.trading = True
         self.output("开始回放历史数据")
-
-        # Use the rest of history data for running backtesting
-        for data in self.history_data[ix:]:
-            try:
-                func(data)
-            except Exception:
-                self.output("触发异常，回测终止")
-                self.output(traceback.format_exc())
-                return
-
+        self.process_data(func, ix)
         self.strategy.on_stop()
         self.output("历史数据回放结束")
 
@@ -700,7 +709,8 @@ class BacktestingEngine:
 
         return result_values
 
-    def run_ga_optimization(self, optimization_setting: OptimizationSetting, population_size=100, ngen_size=30, output=True):
+    def run_ga_optimization(self, optimization_setting: OptimizationSetting, population_size=100, ngen_size=30,
+                            output=True):
         """"""
         # Get optimization setting and target
         settings = optimization_setting.generate_setting_ga()
@@ -769,16 +779,16 @@ class BacktestingEngine:
         toolbox.register("select", tools.selNSGA2)
 
         total_size = len(settings)
-        pop_size = population_size                      # number of individuals in each generation
-        lambda_ = pop_size                              # number of children to produce at each generation
-        mu = int(pop_size * 0.8)                        # number of individuals to select for the next generation
+        pop_size = population_size  # number of individuals in each generation
+        lambda_ = pop_size  # number of children to produce at each generation
+        mu = int(pop_size * 0.8)  # number of individuals to select for the next generation
 
-        cxpb = 0.95         # probability that an offspring is produced by crossover
-        mutpb = 1 - cxpb    # probability that an offspring is produced by mutation
-        ngen = ngen_size    # number of generation
+        cxpb = 0.95  # probability that an offspring is produced by crossover
+        mutpb = 1 - cxpb  # probability that an offspring is produced by mutation
+        ngen = ngen_size  # number of generation
 
         pop = toolbox.population(pop_size)
-        hof = tools.ParetoFront()               # end result of pareto front
+        hof = tools.ParetoFront()  # end result of pareto front
 
         stats = tools.Statistics(lambda ind: ind.fitness.values)
         np.set_printoptions(suppress=True)
@@ -838,14 +848,15 @@ class BacktestingEngine:
         else:
             self.daily_results[d] = DailyResult(d, price)
 
-    def new_bar(self, bar: BarData):
+    def new_bar(self, barTuple: tuple):
         """"""
+        bar = barTuple[1]
         self.bar = bar
         self.datetime = bar.datetime
 
         self.cross_limit_order()
         self.cross_stop_order()
-        self.strategy.on_bar(bar)
+        self.strategy.on_bar(barTuple)
 
         self.update_daily_close(bar.close_price)
 
@@ -890,15 +901,15 @@ class BacktestingEngine:
 
             # Check whether limit orders can be filled.
             long_cross = (
-                order.direction == Direction.LONG
-                and order.price >= long_cross_price
-                and long_cross_price > 0
+                    order.direction == Direction.LONG
+                    and order.price >= long_cross_price
+                    and long_cross_price > 0
             )
 
             short_cross = (
-                order.direction == Direction.SHORT
-                and order.price <= short_cross_price
-                and short_cross_price > 0
+                    order.direction == Direction.SHORT
+                    and order.price <= short_cross_price
+                    and short_cross_price > 0
             )
 
             if not long_cross and not short_cross:
@@ -957,13 +968,13 @@ class BacktestingEngine:
         for stop_order in list(self.active_stop_orders.values()):
             # Check whether stop order can be triggered.
             long_cross = (
-                stop_order.direction == Direction.LONG
-                and stop_order.price <= long_cross_price
+                    stop_order.direction == Direction.LONG
+                    and stop_order.price <= long_cross_price
             )
 
             short_cross = (
-                stop_order.direction == Direction.SHORT
-                and stop_order.price >= short_cross_price
+                    stop_order.direction == Direction.SHORT
+                    and stop_order.price >= short_cross_price
             )
 
             if not long_cross and not short_cross:
@@ -1028,12 +1039,12 @@ class BacktestingEngine:
             self.strategy.on_trade(trade)
 
     def load_bar(
-        self,
-        vt_symbol: str,
-        days: int,
-        interval: Interval,
-        callback: Callable,
-        use_database: bool
+            self,
+            vt_symbol: str,
+            days: int,
+            interval: Interval,
+            callback: Callable,
+            use_database: bool
     ):
         """"""
         self.days = days
@@ -1045,14 +1056,14 @@ class BacktestingEngine:
         self.callback = callback
 
     def send_order(
-        self,
-        strategy: CtaTemplate,
-        direction: Direction,
-        offset: Offset,
-        price: float,
-        volume: float,
-        stop: bool,
-        lock: bool
+            self,
+            strategy: CtaTemplate,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float,
+            stop: bool,
+            lock: bool
     ):
         """"""
         price = round_to(price, self.pricetick)
@@ -1063,11 +1074,11 @@ class BacktestingEngine:
         return [vt_orderid]
 
     def send_stop_order(
-        self,
-        direction: Direction,
-        offset: Offset,
-        price: float,
-        volume: float
+            self,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float
     ):
         """"""
         self.stop_order_count += 1
@@ -1088,11 +1099,11 @@ class BacktestingEngine:
         return stop_order.stop_orderid
 
     def send_limit_order(
-        self,
-        direction: Direction,
-        offset: Offset,
-        price: float,
-        volume: float
+            self,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float
     ):
         """"""
         self.limit_order_count += 1
@@ -1245,13 +1256,13 @@ class DailyResult:
         self.trades.append(trade)
 
     def calculate_pnl(
-        self,
-        pre_close: float,
-        start_pos: float,
-        size: int,
-        rate: float,
-        slippage: float,
-        inverse: bool
+            self,
+            pre_close: float,
+            start_pos: float,
+            size: int,
+            rate: float,
+            slippage: float,
+            inverse: bool
     ):
         """"""
         # If no pre_close provided on the first day,
@@ -1265,12 +1276,12 @@ class DailyResult:
         self.start_pos = start_pos
         self.end_pos = start_pos
 
-        if not inverse:     # For normal contract
+        if not inverse:  # For normal contract
             self.holding_pnl = self.start_pos * \
-                (self.close_price - self.pre_close) * size
-        else:               # For crypto currency inverse contract
+                               (self.close_price - self.pre_close) * size
+        else:  # For crypto currency inverse contract
             self.holding_pnl = self.start_pos * \
-                (1 / self.pre_close - 1 / self.close_price) * size
+                               (1 / self.pre_close - 1 / self.close_price) * size
 
         # Trading pnl is the pnl from new trade during the day
         self.trade_count = len(self.trades)
@@ -1287,13 +1298,13 @@ class DailyResult:
             if not inverse:
                 turnover = trade.volume * size * trade.price
                 self.trading_pnl += pos_change * \
-                    (self.close_price - trade.price) * size
+                                    (self.close_price - trade.price) * size
                 self.slippage += trade.volume * size * slippage
             # For crypto currency inverse contract
             else:
                 turnover = trade.volume * size / trade.price
                 self.trading_pnl += pos_change * \
-                    (1 / trade.price - 1 / self.close_price) * size
+                                    (1 / trade.price - 1 / self.close_price) * size
                 self.slippage += trade.volume * size * slippage / (trade.price ** 2)
 
             self.turnover += turnover
@@ -1305,20 +1316,20 @@ class DailyResult:
 
 
 def optimize(
-    target_name: str,
-    strategy_class: CtaTemplate,
-    setting: dict,
-    vt_symbol: str,
-    interval: Interval,
-    start: datetime,
-    rate: float,
-    slippage: float,
-    size: float,
-    pricetick: float,
-    capital: int,
-    end: datetime,
-    mode: BacktestingMode,
-    inverse: bool
+        target_name: str,
+        strategy_class: CtaTemplate,
+        setting: dict,
+        vt_symbol: str,
+        interval: Interval,
+        start: datetime,
+        rate: float,
+        slippage: float,
+        size: float,
+        pricetick: float,
+        capital: int,
+        end: datetime,
+        mode: BacktestingMode,
+        inverse: bool
 ):
     """
     Function for running in multiprocessing.pool
@@ -1380,23 +1391,22 @@ def ga_optimize(parameter_values: list):
 
 @lru_cache(maxsize=999)
 def load_bar_data(
-    exchange: Exchange,
-    interval: Interval,
-    start: datetime,
-    end: datetime
+        symbols: tuple,
+        exchange: Exchange,
+        interval: Interval,
+        start: datetime,
+        end: datetime
 ):
     """"""
-    return database_manager.load_all_bar_data(
-        exchange, interval, start, end
-    )
+    return database_manager.load_all_bar_data(list(symbols), exchange, interval, start, end)
 
 
 @lru_cache(maxsize=999)
 def load_tick_data(
-    symbol: str,
-    exchange: Exchange,
-    start: datetime,
-    end: datetime
+        symbol: str,
+        exchange: Exchange,
+        start: datetime,
+        end: datetime
 ):
     """"""
     return database_manager.load_tick_data(
