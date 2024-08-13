@@ -319,32 +319,52 @@ class BacktestingEngine:
             self.output(f"历史数据加载完成，{symbol}，{len(bars)}")
         # self.output(f"历史数据加载完成，数据量：{len(self.history_data)}")
 
+    # def process_data(self, func, ix=0):
+    #     """
+    #     处理历史数据，按照指定函数进行回测。
+    #     Args:
+    #         func: 需要调用的处理函数，传入格式为 (symbol, data)，其中 symbol 表示股票代码，data 表示数据列表。
+    #         ix (int, optional): 开始处理的索引位置，默认为0。
+    #     """
+    #     day_count = 0
+    #     for symbol, dataList in self.history_data.items():
+    #         try:
+    #             day_count = 0
+    #             for data in dataList[ix:]:
+    #                 if day_count >= self.days:
+    #                     break
+    #                 day_count += 1
+    #                 func((symbol, data))
+    #         except Exception:
+    #             self.output("触发异常，回测终止")
+    #             self.output(traceback.format_exc())
+    #             return
+    #     self.process_data(func, ix + day_count)
+
     def process_data(self, func, ix=0):
         """
         处理历史数据，按照指定函数进行回测。
-
         Args:
             func: 需要调用的处理函数，传入格式为 (symbol, data)，其中 symbol 表示股票代码，data 表示数据列表。
             ix (int, optional): 开始处理的索引位置，默认为0。
-
-        Returns:
-            None
-
         """
-        day_count = 0
-        for symbol, dataList in self.history_data.items():
-            try:
-                day_count = 0
-                for data in dataList[ix:]:
-                    if day_count >= self.days:
-                        break
-                    day_count += 1
-                    func((symbol, data))
-            except Exception:
-                self.output("触发异常，回测终止")
-                self.output(traceback.format_exc())
-                return
-        self.process_data(func, ix + day_count)
+        while True:
+            day_count = 0
+            for symbol, dataList in self.history_data.items():
+                try:
+                    for data in dataList[ix:]:
+                        if day_count >= self.days:
+                            break
+                        day_count += 1
+                        func((symbol, data))
+                except Exception:
+                    self.output("触发异常，回测终止")
+                    self.output(traceback.format_exc())
+                    return
+            # self.output(f"Processed {day_count} days, starting from index {ix}")
+            if day_count < self.days:
+                break
+            ix += day_count
 
     def run_backtesting(self):
         """"""
@@ -1073,6 +1093,25 @@ class BacktestingEngine:
             vt_orderid = self.send_limit_order(direction, offset, price, volume)
         return [vt_orderid]
 
+    def send_order_symbol(
+            self,
+            strategy: CtaTemplate,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float,
+            stop: bool,
+            lock: bool,
+            symbol: str,
+    ):
+        """"""
+        price = round_to(price, self.pricetick)
+        if stop:
+            vt_orderid = self.send_stop_order_symbol(direction, offset, price, volume, symbol)
+        else:
+            vt_orderid = self.send_limit_order_symbol(direction, offset, price, volume, symbol)
+        return [vt_orderid]
+
     def send_stop_order(
             self,
             direction: Direction,
@@ -1098,6 +1137,32 @@ class BacktestingEngine:
 
         return stop_order.stop_orderid
 
+    def send_stop_order_symbol(
+            self,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float,
+            symbol: str
+    ):
+        """"""
+        self.stop_order_count += 1
+
+        stop_order = StopOrder(
+            vt_symbol=symbol,
+            direction=direction,
+            offset=offset,
+            price=price,
+            volume=volume,
+            stop_orderid=f"{STOPORDER_PREFIX}.{self.stop_order_count}",
+            strategy_name=self.strategy.strategy_name,
+        )
+
+        self.active_stop_orders[stop_order.stop_orderid] = stop_order
+        self.stop_orders[stop_order.stop_orderid] = stop_order
+
+        return stop_order.stop_orderid
+
     def send_limit_order(
             self,
             direction: Direction,
@@ -1110,6 +1175,35 @@ class BacktestingEngine:
 
         order = OrderData(
             symbol=self.symbol,
+            exchange=self.exchange,
+            orderid=str(self.limit_order_count),
+            direction=direction,
+            offset=offset,
+            price=price,
+            volume=volume,
+            status=Status.SUBMITTING,
+            gateway_name=self.gateway_name,
+            datetime=self.datetime
+        )
+
+        self.active_limit_orders[order.vt_orderid] = order
+        self.limit_orders[order.vt_orderid] = order
+
+        return order.vt_orderid
+
+    def send_limit_order_symbol(
+            self,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float,
+            symbol: str
+    ):
+        """"""
+        self.limit_order_count += 1
+
+        order = OrderData(
+            symbol=symbol,
             exchange=self.exchange,
             orderid=str(self.limit_order_count),
             direction=direction,

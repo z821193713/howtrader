@@ -25,14 +25,14 @@ engine.set_parameters(
         "TRXUSDT.BINANCE",
         "ETCUSDT.BINANCE"
     ],
-    interval=Interval.MINUTE,
+    interval=Interval.MINUTE,  # 回测频率
     start=datetime(2023, 10, 1),
-    end=datetime(2023, 10, 2),
-    rate=6/ 10000,
-    slippage=0,
-    size=1,
-    pricetick=0.01,
-    capital=10000,
+    end=datetime(2023, 10, 9),
+    rate=6/ 10000,  # 手续费
+    slippage=0,  # 滑点
+    size=1,  # 合约大小
+    pricetick=0.01,  # 价格变动
+    capital=10000,  # 资金
 )
 
 # 设置策略参数
@@ -51,9 +51,8 @@ engine.load_data()
 engine.run_backtesting()
 
 # # 显示回测结果
-# engine.calculate_result()
-
-
+engine.calculate_result()
+engine.calculate_statistics()
 
 
 

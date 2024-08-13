@@ -29,9 +29,9 @@ class CtaTemplate(ABC):
         self.strategy_name = strategy_name
         self.vt_symbol = vt_symbol
 
-        self.inited = False
-        self.trading = False
-        self.pos = 0
+        self.inited = False  # 初始化状态
+        self.trading = False  # 交易状态
+        self.pos = 0  # 持仓
 
         # Copy a new variables list here to avoid duplicate insert when multiple
         # strategy instances are created with the same strategy class.
@@ -192,9 +192,37 @@ class CtaTemplate(ABC):
         else:
             return []
 
+    def send_order_symbol(
+        self,
+        direction: Direction,
+        offset: Offset,
+        price: float,
+        volume: float,
+        stop: bool = False,
+        lock: bool = False,
+        symbol: str = None
+    ):
+        """
+        Send a new order.
+        """
+        if self.trading:
+            vt_orderids = self.cta_engine.send_order_symbol(
+                self, direction, offset, price, volume, stop, lock, symbol
+            )
+            return vt_orderids
+        else:
+            return []
+
     def cancel_order(self, vt_orderid: str):
         """
-        Cancel an existing order.
+        取消订单
+
+        Args:
+            vt_orderid (str): 订单ID
+
+        Returns:
+            None
+
         """
         if self.trading:
             self.cta_engine.cancel_order(self, vt_orderid)

@@ -108,18 +108,18 @@ class OrderData(BaseData):
 
     symbol: str
     exchange: Exchange
-    orderid: str
+    orderid: str  # 订单ID
 
-    type: OrderType = OrderType.LIMIT
-    direction: Direction = None
-    offset: Offset = Offset.NONE
-    price: float = 0
-    volume: float = 0
-    traded: float = 0
-    status: Status = Status.SUBMITTING
-    datetime: datetime = None
-    reference: str = ""
-    trade_data: "TradeData" = None
+    type: OrderType = OrderType.LIMIT  # 订单类型
+    direction: Direction = None  # 买卖方向
+    offset: Offset = Offset.NONE  # 开平标志
+    price: float = 0  # 价格
+    volume: float = 0  # 数量
+    traded: float = 0  # 成交数量
+    status: Status = Status.SUBMITTING  # 订单状态
+    datetime: datetime = None  # 订单时间
+    reference: str = ""  # 订单引用
+    trade_data: "TradeData" = None  # 成交数据
 
     def __post_init__(self):
         """"""
@@ -161,16 +161,16 @@ class TradeData(BaseData):
     can have several trade fills.
     """
 
-    symbol: str
-    exchange: Exchange
-    orderid: str
-    tradeid: str
-    direction: Direction = None
+    symbol: str  # 合约代码
+    exchange: Exchange  # 交易所代码
+    orderid: str  # 订单号
+    tradeid: str  # 成交号
+    direction: Direction = None  # 买卖方向
 
-    offset: Offset = Offset.NONE
-    price: float = 0
-    volume: float = 0
-    datetime: datetime = None
+    offset: Offset = Offset.NONE  # 开平标志
+    price: float = 0  # 成交价
+    volume: float = 0  # 成交量
+    datetime: datetime = None  # 成交时间
 
     def __post_init__(self):
         """"""
